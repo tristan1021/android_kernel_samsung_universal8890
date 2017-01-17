@@ -251,8 +251,27 @@ DHDCFLAGS += -DUSE_WFA_CERT_CONF
 
 DHDCFLAGS += -DCUSTOMER_SCAN_TIMEOUT_SETTING
 
-# WBTEXT (11kv) feature
-DHDCFLAGS += -DWBTEXT
+# Android Version Check from Platform source
+CANDIDATE_VERSION_PATH := ./../../build/core ../../../../../../build/core out
+FOUND_VERSION_PATH := $(foreach dir,$(CANDIDATE_VERSION_PATH), $(wildcard $(dir)/version_defaults.mk))
+FOUND_VERSION_PATH := $(word 1, $(FOUND_VERSION_PATH))
+ifeq ($(FOUND_VERSION_PATH),)
+$(warning Not found Android version file. Set as Legacy mode)
+DHDCFLAGS += -DDHD_LEGACY_FILE_PATH
+DHDCFLAGS += -DDHD_DISABLE_ANDROID_FEATURE_SET
+else
+# Extract version string and get major number
+ANDROID_PLATFORM_VERSION := $(shell grep "PLATFORM_VERSION := " $(FOUND_VERSION_PATH) | cut -d "=" -f 2 | cut -d "." -f 1 | sed 's/ //g')
+$(warning Android Platform Version : $(ANDROID_PLATFORM_VERSION))
+# If Android version lower than 7(Nougat) => Use Legacy File path
+ifeq ($(shell expr $(ANDROID_PLATFORM_VERSION) \< 7),1)
+DHDCFLAGS += -DDHD_LEGACY_FILE_PATH
+DHDCFLAGS += -DDHD_DISABLE_ANDROID_FEATURE_SET
+$(warning Will be use Legacy file path)
+else
+DHDCFLAGS += -DDHD_SET_COUNTRY_SUPPORT
+endif
+endif
 
 ##############################
 # Android Platform Definition
@@ -271,12 +290,6 @@ DHDCFLAGS += -DWL_IFACE_COMB_NUM_CHANNELS
 DHDCFLAGS += -DWL_NEWCFG_PRIVCMD_SUPPORT
 # Link Statistics feature
 DHDCFLAGS += -DLINKSTAT_SUPPORT
-
-# To support GSCAN
-DHDCFLAGS += -DGSCAN_SUPPORT
-
-# To support RTT
-DHDCFLAGS += -DRTT_SUPPORT
 
 # To support WL_VENDOR_EXT_SUPPORT
 DHDCFLAGS += -DWL_VENDOR_EXT_SUPPORT
@@ -348,7 +361,7 @@ endif
   DHDCFLAGS += -DSUPPORT_2G_VHT
   DHDCFLAGS += -DSUPPORT_WL_TXPOWER
   DHDCFLAGS += -DWL11ULB
-# DHDCFLAGS += -DENABLE_IPMCAST_FILTER
+  DHDCFLAGS += -DENABLE_IPMCAST_FILTER
  # Enable SensorHub Move/Stop
 #ifeq ($(filter y,$(CONFIG_WLAN_GRACE) $(CONFIG_SEC_GRACEQLTE_PROJECT)),y)
 # DHDCFLAGS += -DSUPPORT_SENSORHUB
@@ -366,6 +379,10 @@ endif
   DHDCFLAGS += -DAPSTA_BLOCK_ARP_DURING_DHCP
  # Use restricted channels on STA/SoftAP concurrent mode
   DHDCFLAGS += -DAPSTA_RESTRICTED_CHANNEL
+# To support APF
+  DHDCFLAGS += -DAPF
+# To support CAC
+  DHDCFLAGS += -DSUPPORT_SET_CAC
 
 ifeq ($(filter y,$(CONFIG_ARCH_MSM8996) $(CONFIG_SOC_EXYNOS8890)),y)
  # Runtime PM
@@ -377,7 +394,9 @@ ifeq ($(filter y,$(CONFIG_ARCH_MSM8996) $(CONFIG_SOC_EXYNOS8890)),y)
  # CLM
   DHDCFLAGS += -DDHD_SUPPORT_GB_999
  # Configure MU-MIMO capability
-  #DHDCFLAGS += -DDYNAMIC_MUMIMO_CONTROL
+ifeq ($(CONFIG_SOC_EXYNOS8890),y)
+  DHDCFLAGS += -DDYNAMIC_MUMIMO_CONTROL
+endif
 endif
 
 ifeq ($(filter y,$(CONFIG_WLAN_HERO) $(CONFIG_SEC_HEROQLTE_PROJECT)),y)
@@ -390,6 +409,8 @@ endif
 
 ifeq ($(filter y,$(CONFIG_WLAN_GRACE) $(CONFIG_SEC_GRACEQLTE_PROJECT)),y)
   DHDCFLAGS += -DDHD_USE_CLMINFO_PARSER
+  # WBTEXT (11kv) feature
+  DHDCFLAGS += -DWBTEXT
 endif
 
  # RSDB mode from file config

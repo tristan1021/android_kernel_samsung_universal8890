@@ -25,7 +25,7 @@
  *
  * <<Broadcom-WL-IPTag/Open:>>
  *
- * $Id: dngl_stats.h 629377 2016-04-05 05:22:34Z $
+ * $Id: dngl_stats.h 668337 2016-11-03 01:32:05Z $
  */
 
 #ifndef _dngl_stats_h_
@@ -195,6 +195,20 @@ typedef struct {
 	uint32 num_channels;               /* number of channels */
 	wifi_channel_stat channels[1];   /* channel statistics */
 } wifi_radio_stat;
+
+typedef struct {
+	wifi_radio radio;
+	uint32 on_time;
+	uint32 tx_time;
+	uint32 rx_time;
+	uint32 on_time_scan;
+	uint32 on_time_nbd;
+	uint32 on_time_gscan;
+	uint32 on_time_roam_scan;
+	uint32 on_time_pno_scan;
+	uint32 on_time_hs20;
+	uint32 num_channels;
+} wifi_radio_stat_h;
 
 /* per rate statistics */
 typedef struct {

@@ -174,17 +174,24 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"",   "XZ", 11},	/* Universal if Country code is unknown or empty */
 	{"IR", "XZ", 11},	/* Universal if Country code is IRAN, (ISLAMIC REPUBLIC OF) */
 	{"SD", "XZ", 11},	/* Universal if Country code is SUDAN */
-	{"SY", "XZ", 11},	/* Universal if Country code is SYRIAN ARAB REPUBLIC */
 	{"PS", "XZ", 11},	/* Universal if Country code is PALESTINIAN TERRITORY, OCCUPIED */
 	{"TL", "XZ", 11},	/* Universal if Country code is TIMOR-LESTE (EAST TIMOR) */
 	{"MH", "XZ", 11},	/* Universal if Country code is MARSHALL ISLANDS */
+	{"SX", "XZ", 11},	/* Universal if Country code is Sint Maarten */
+	{"CC", "XZ", 11},	/* Universal if Country code is COCOS (KEELING) ISLANDS */
+	{"HM", "XZ", 11},	/* Universal if Country code is HEARD ISLAND AND MCDONALD ISLANDS */
+	{"PN", "XZ", 11},	/* Universal if Country code is PITCAIRN */
+	{"AQ", "XZ", 11},	/* Universal if Country code is ANTARCTICA */
+	{"AX", "XZ", 11},	/* Universal if Country code is ALAND ISLANDS */
+	{"BV", "XZ", 11},	/* Universal if Country code is BOUVET ISLAND */
+	{"GS", "XZ", 11},	/* Universal if Country code is
+				 * SOUTH GEORGIA AND THE SOUTH SANDWICH ISLANDS
+				 */
+	{"SH", "XZ", 11},	/* Universal if Country code is SAINT HELENA */
+	{"SJ", "XZ", 11},	/* Universal if Country code is SVALBARD AND JAN MAYEN */
+	{"SS", "XZ", 11},	/* Universal if Country code is SOUTH SUDAN */
 	{"GL", "GP", 2},
 	{"AL", "AL", 2},
-#ifdef DHD_SUPPORT_GB_999
-	{"DZ", "GB", 999},
-#else
-	{"DZ", "GB", 6},
-#endif /* DHD_SUPPORT_GB_999 */
 	{"AS", "AS", 12},
 	{"AI", "AI", 1},
 	{"AF", "AD", 0},
@@ -245,7 +252,9 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"MO", "SG", 0},
 	{"MK", "MK", 2},
 	{"MW", "MW", 1},
-	{"MY", "MY", 3},
+	{"AM", "AM", 1},
+	{"MY", "MY", 19},
+	{"DZ", "DZ", 2},
 	{"MV", "MV", 3},
 	{"MT", "MT", 4},
 	{"MQ", "MQ", 2},
@@ -280,7 +289,7 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"LK", "LK", 1},
 	{"SE", "SE", 4},
 	{"CH", "CH", 4},
-	{"TW", "TW", 1},
+	{"TW", "TW", 65},
 	{"TH", "TH", 5},
 	{"TT", "TT", 3},
 	{"TR", "TR", 7},
@@ -310,7 +319,7 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"MN", "MN", 1},
 	{"NI", "NI", 2},
 	{"UZ", "MA", 2},
-	{"ZA", "ZA", 6},
+	{"ZA", "ZA", 19},
 	{"EG", "EG", 13},
 	{"TN", "TN", 1},
 	{"AO", "AD", 0},
@@ -363,21 +372,12 @@ void get_customized_country_code(void *adapter, char *country_iso_code, wl_count
 	return;
 }
 
-#ifdef PLATFORM_SLP
-#define PSMINFO "/opt/etc/.psm.info"
-#define REVINFO "/opt/etc/.rev"
-#define WIFIVERINFO "/opt/etc/.wifiver.info"
-#define ANTINFO "/opt/etc/.ant.info"
-#define RSDBINFO "/opt/etc/.rsdb.info"
-#define LOGTRACEINFO "/opt/etc/.logtrace.info"
-#else
-#define PSMINFO "/data/.psm.info"
-#define	REVINFO "/data/.rev"
-#define WIFIVERINFO "/data/.wifiver.info"
-#define ANTINFO "/data/.ant.info"
-#define RSDBINFO "/data/.rsdb.info"
-#define LOGTRACEINFO "/data/.logtrace.info"
-#endif /* PLATFORM_SLP */
+#define PSMINFO	PLATFORM_PATH".psm.info"
+#define	REVINFO	PLATFORM_PATH".rev"
+#define ANTINFO PLATFORM_PATH".ant.info"
+#define WIFIVERINFO	PLATFORM_PATH".wifiver.info"
+#define RSDBINFO	PLATFORM_PATH".rsdb.info"
+#define LOGTRACEINFO	PLATFORM_PATH".logtrace.info"
 
 #ifdef DHD_PM_CONTROL_FROM_FILE
 extern bool g_pm_control;
@@ -399,9 +399,9 @@ void sec_control_pm(dhd_pub_t *dhd, uint *power_mode)
 		/* Enable PowerSave Mode */
 		dhd_wl_ioctl_cmd(dhd, WLC_SET_PM, (char *)power_mode,
 			sizeof(uint), TRUE, 0);
-		DHD_ERROR(("[WIFI_SEC] %s: /data/.psm.info doesn't exist"
+		DHD_ERROR(("[WIFI_SEC] %s: %s doesn't exist"
 			" so set PM to %d\n",
-			__FUNCTION__, *power_mode));
+			__FUNCTION__, filepath, *power_mode));
 		return;
 	} else {
 		kernel_read(fp, fp->f_pos, &power_val, 1);
@@ -575,7 +575,7 @@ int dhd_sel_ant_from_file(dhd_pub_t *dhd)
 
 #ifdef RSDB_MODE_FROM_FILE
 /*
- * RSDBOFFINFO = /data/.rsdb.info
+ * RSDBOFFINFO = .rsdb.info
  *  - rsdb_mode = 1            => Don't change RSDB mode / RSDB stay as turn on
  *  - rsdb_mode = 0            => Trun Off RSDB mode
  *  - file not exist          => Don't change RSDB mode / RSDB stay as turn on
@@ -633,7 +633,7 @@ int dhd_rsdb_mode_from_file(dhd_pub_t *dhd)
 
 #ifdef LOGTRACE_FROM_FILE
 /*
- * LOGTRACEINFO = /data/.logtrace.info
+ * LOGTRACEINFO = .logtrace.info
  *  - logtrace = 1            => Enable LOGTRACE Event
  *  - logtrace = 0            => Disable LOGTRACE Event
  *  - file not exist          => Disable LOGTRACE Event
@@ -691,24 +691,24 @@ int sec_get_param_wfa_cert(dhd_pub_t *dhd, int mode, uint* read_val)
 
 	switch (mode) {
 		case SET_PARAM_BUS_TXGLOM_MODE:
-			filepath = "/data/.bustxglom.info";
+			filepath = PLATFORM_PATH".bustxglom.info";
 			break;
 		case SET_PARAM_ROAMOFF:
-			filepath = "/data/.roamoff.info";
+			filepath = PLATFORM_PATH".roamoff.info";
 			break;
 #ifdef USE_WL_FRAMEBURST
 		case SET_PARAM_FRAMEBURST:
-			filepath = "/data/.frameburst.info";
+			filepath = PLATFORM_PATH".frameburst.info";
 			break;
 #endif /* USE_WL_FRAMEBURST */
 #ifdef USE_WL_TXBF
 		case SET_PARAM_TXBF:
-			filepath = "/data/.txbf.info";
+			filepath = PLATFORM_PATH".txbf.info";
 			break;
 #endif /* USE_WL_TXBF */
 #ifdef PROP_TXSTATUS
 		case SET_PARAM_PROPTX:
-			filepath = "/data/.proptx.info";
+			filepath = PLATFORM_PATH".proptx.info";
 			break;
 #endif /* PROP_TXSTATUS */
 		default:
@@ -911,7 +911,7 @@ dhd_force_disable_singlcore_scan(dhd_pub_t *dhd)
 {
 	int ret = 0;
 	struct file *fp = NULL;
-	char *filepath = "/data/.cid.info";
+	char *filepath = PLATFORM_PATH".cid.info";
 	s8 iovbuf[WL_EVENTING_MASK_LEN + 12];
 	char vender[10] = {0, };
 	uint32 pm_bcnrx = 0;
@@ -922,7 +922,7 @@ dhd_force_disable_singlcore_scan(dhd_pub_t *dhd)
 
 	fp = filp_open(filepath, O_RDONLY, 0);
 	if (IS_ERR(fp)) {
-		DHD_ERROR(("/data/.cid.info file open error\n"));
+		DHD_ERROR(("%s file open error\n", filepath));
 	} else {
 		ret = kernel_read(fp, 0, (char *)vender, 5);
 

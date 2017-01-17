@@ -24,7 +24,7 @@
  *
  * <<Broadcom-WL-IPTag/Open:>>
  *
- * $Id: dhd_pcie.c 645077 2016-06-22 12:55:51Z $
+ * $Id: dhd_pcie.c 672945 2016-11-30 08:58:34Z $
  */
 
 
@@ -115,8 +115,10 @@ static void dhdpcie_bus_wtcm16(dhd_bus_t *bus, ulong offset, uint16 data);
 static uint16 dhdpcie_bus_rtcm16(dhd_bus_t *bus, ulong offset);
 static void dhdpcie_bus_wtcm32(dhd_bus_t *bus, ulong offset, uint32 data);
 static uint32 dhdpcie_bus_rtcm32(dhd_bus_t *bus, ulong offset);
+#ifdef DHD_SUPPORT_64BIT
 static void dhdpcie_bus_wtcm64(dhd_bus_t *bus, ulong offset, uint64 data);
 static uint64 dhdpcie_bus_rtcm64(dhd_bus_t *bus, ulong offset);
+#endif /* DHD_SUPPORT_64BIT */
 static void dhdpcie_bus_cfg_set_bar0_win(dhd_bus_t *bus, uint32 data);
 static void dhdpcie_bus_reg_unmap(osl_t *osh, ulong addr, int size);
 static int dhdpcie_cc_nvmshadow(dhd_bus_t *bus, struct bcmstrbuf *b);
@@ -1214,7 +1216,7 @@ concate_revision(dhd_bus_t *bus, char *fw_path, char *nv_path)
 #endif /* SUPPORT_MULTIPLE_REVISION */
 
 #define DEADBEEF_PATTERN 0xADDEADDE	// "DeadDead"
-#define MEMCHECKINFO "/data/.memcheck.info"
+#define MEMCHECKINFO PLATFORM_PATH".memcheck.info"
 
 static int
 dhd_get_memcheck_info(void)
@@ -1504,7 +1506,7 @@ dhdpcie_download_nvram(struct dhd_bus *bus)
 	dhd_get_download_buffer(bus->dhd, NULL, NVRAM, &memblock, &len);
 
 	/* If UEFI empty, then read from file system */
-	if ((len == 0) || (memblock[0] == '\0')) {
+	if ((len == 0) || (memblock == NULL)) {
 
 		if (nvram_file_exists) {
 			len = MAX_NVRAMBUF_SIZE;
@@ -1523,7 +1525,7 @@ dhdpcie_download_nvram(struct dhd_bus *bus)
 
 	DHD_ERROR(("%s: dhd_get_download_buffer len %d\n", __FUNCTION__, len));
 
-	if (len > 0 && len <= MAX_NVRAMBUF_SIZE) {
+	if (len > 0 && len <= MAX_NVRAMBUF_SIZE && memblock != NULL) {
 		bufp = (char *) memblock;
 
 #ifdef CACHE_FW_IMAGES
@@ -2127,7 +2129,7 @@ dhdpcie_mem_dump(dhd_bus_t *bus)
 	}
 
 	/* Read mem content */
-	DHD_TRACE_HW4(("Dump dongle memory"));
+	DHD_TRACE_HW4(("Dump dongle memory\n"));
 	databuf = buf;
 	while (size)
 	{
@@ -2227,18 +2229,25 @@ dhdpcie_bus_membytes(dhd_bus_t *bus, bool write, ulong address, uint8 *data, uin
 	 */
 
 	/* Determine initial transfer parameters */
+#ifdef DHD_SUPPORT_64BIT
 	dsize = sizeof(uint64);
+#else /* !DHD_SUPPORT_64BIT */
+	dsize = sizeof(uint32);
+#endif /* DHD_SUPPORT_64BIT */
 
 	/* Do the transfer(s) */
 	if (write) {
 		while (size) {
-			if (size >= sizeof(uint64) && little_endian &&
-#ifdef CONFIG_64BIT
-				!(address % 8) &&
-#endif /* CONFIG_64BIT */
-				1) {
+#ifdef DHD_SUPPORT_64BIT
+			if (size >= sizeof(uint64) && little_endian &&	!(address % 8)) {
 				dhdpcie_bus_wtcm64(bus, address, *((uint64 *)data));
-			} else {
+			}
+#else /* !DHD_SUPPORT_64BIT */
+			if (size >= sizeof(uint32) && little_endian &&	!(address % 4)) {
+				dhdpcie_bus_wtcm32(bus, address, *((uint32*)data));
+			}
+#endif /* DHD_SUPPORT_64BIT */
+			else {
 				dsize = sizeof(uint8);
 				dhdpcie_bus_wtcm8(bus, address, *data);
 			}
@@ -2251,13 +2260,18 @@ dhdpcie_bus_membytes(dhd_bus_t *bus, bool write, ulong address, uint8 *data, uin
 		}
 	} else {
 		while (size) {
-			if (size >= sizeof(uint64) && little_endian &&
-#ifdef CONFIG_64BIT
-				!(address % 8) &&
-#endif /* CONFIG_64BIT */
-				1) {
+#ifdef DHD_SUPPORT_64BIT
+			if (size >= sizeof(uint64) && little_endian &&	!(address % 8))
+			{
 				*(uint64 *)data = dhdpcie_bus_rtcm64(bus, address);
-			} else {
+			}
+#else /* !DHD_SUPPORT_64BIT */
+			if (size >= sizeof(uint32) && little_endian &&	!(address % 4))
+			{
+				*(uint32 *)data = dhdpcie_bus_rtcm32(bus, address);
+			}
+#endif /* DHD_SUPPORT_64BIT */
+			else {
 				dsize = sizeof(uint8);
 				*data = dhdpcie_bus_rtcm8(bus, address);
 			}
@@ -2523,7 +2537,7 @@ dhd_bus_rx_frame(struct dhd_bus *bus, void* pkt, int ifidx, uint pkt_count)
 void
 dhdpcie_bus_wtcm8(dhd_bus_t *bus, ulong offset, uint8 data)
 {
-	*(volatile uint8 *)(bus->tcm + offset) = (uint8)data;
+	W_REG(bus->dhd->osh, (volatile uint8 *)(bus->tcm + offset), data);
 }
 
 uint8
@@ -2531,34 +2545,34 @@ dhdpcie_bus_rtcm8(dhd_bus_t *bus, ulong offset)
 {
 	volatile uint8 data;
 
-		data = *(volatile uint8 *)(bus->tcm + offset);
-
+	data = R_REG(bus->dhd->osh, (volatile uint8 *)(bus->tcm + offset));
 	return data;
 }
 
 void
 dhdpcie_bus_wtcm32(dhd_bus_t *bus, ulong offset, uint32 data)
 {
-	*(volatile uint32 *)(bus->tcm + offset) = (uint32)data;
+	W_REG(bus->dhd->osh, (volatile uint32 *)(bus->tcm + offset), data);
 }
 void
 dhdpcie_bus_wtcm16(dhd_bus_t *bus, ulong offset, uint16 data)
 {
-	*(volatile uint16 *)(bus->tcm + offset) = (uint16)data;
+	W_REG(bus->dhd->osh, (volatile uint16 *)(bus->tcm + offset), data);
 }
+#ifdef DHD_SUPPORT_64BIT
 void
 dhdpcie_bus_wtcm64(dhd_bus_t *bus, ulong offset, uint64 data)
 {
-	*(volatile uint64 *)(bus->tcm + offset) = (uint64)data;
+	W_REG(bus->dhd->osh, (volatile uint64 *)(bus->tcm + offset), data);
 }
+#endif /* DHD_SUPPORT_64BIT */
 
 uint16
 dhdpcie_bus_rtcm16(dhd_bus_t *bus, ulong offset)
 {
 	volatile uint16 data;
 
-		data = *(volatile uint16 *)(bus->tcm + offset);
-
+	data = R_REG(bus->dhd->osh, (volatile uint16 *)(bus->tcm + offset));
 	return data;
 }
 
@@ -2567,20 +2581,20 @@ dhdpcie_bus_rtcm32(dhd_bus_t *bus, ulong offset)
 {
 	volatile uint32 data;
 
-		data = *(volatile uint32 *)(bus->tcm + offset);
-
+	data = R_REG(bus->dhd->osh, (volatile uint32 *)(bus->tcm + offset));
 	return data;
 }
 
+#ifdef DHD_SUPPORT_64BIT
 uint64
 dhdpcie_bus_rtcm64(dhd_bus_t *bus, ulong offset)
 {
 	volatile uint64 data;
 
-		data = *(volatile uint64 *)(bus->tcm + offset);
-
+	data = R_REG(bus->dhd->osh, (volatile uint64 *)(bus->tcm + offset));
 	return data;
 }
+#endif /* DHD_SUPPORT_64BIT */
 
 /** A snippet of dongle memory is shared between host and dongle */
 void
@@ -4036,20 +4050,16 @@ dhdpcie_bus_suspend(struct dhd_bus *bus, bool state)
 			/* resume all interface network queue. */
 			dhd_bus_start_queue(bus);
 			DHD_GENERAL_UNLOCK(bus->dhd, flags);
-			if (bus->dhd->d3ackcnt_timeout >= MAX_CNTL_D3ACK_TIMEOUT) {
-				DHD_ERROR(("%s: Event HANG send up "
-					"due to PCIe linkdown\n", __FUNCTION__));
+			DHD_ERROR(("%s: Event HANG send up "
+						"due to PCIe linkdown\n", __FUNCTION__));
 #ifdef SUPPORT_LINKDOWN_RECOVERY
 #ifdef CONFIG_ARCH_MSM
-				bus->no_cfg_restore = 1;
+			bus->no_cfg_restore = 1;
 #endif /* CONFIG_ARCH_MSM */
 #endif /* SUPPORT_LINKDOWN_RECOVERY */
-				dhd_os_check_hang(bus->dhd, 0, -ETIMEDOUT);
-			}
+			dhd_os_check_hang(bus->dhd, 0, -ETIMEDOUT);
 			rc = -ETIMEDOUT;
-
 		}
-
 		bus->wait_for_d3_ack = 1;
 		DHD_GENERAL_LOCK(bus->dhd, flags);
 		bus->dhd->dhd_bus_busy_state &= ~DHD_BUS_BUSY_IN_SUSPEND;

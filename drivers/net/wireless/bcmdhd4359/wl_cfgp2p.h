@@ -24,7 +24,7 @@
  *
  * <<Broadcom-WL-IPTag/Open:>>
  *
- * $Id: wl_cfgp2p.h 635563 2016-05-04 09:26:53Z $
+ * $Id: wl_cfgp2p.h 668473 2016-11-03 13:40:32Z $
  */
 #ifndef _wl_cfgp2p_h_
 #define _wl_cfgp2p_h_
@@ -147,9 +147,9 @@ enum wl_cfgp2p_status {
 		if (wl_dbg_level & WL_DBG_ERR) {				\
 			printk(KERN_INFO CFGP2P_ERROR_TEXT "%s : ", __func__);	\
 			printk args;						\
-			dhd_log_dump_print("[%s] %s: ",	\
+			DHD_LOG_DUMP_WRITE("[%s] %s: ",	\
 			dhd_log_dump_get_timestamp(), __func__);	\
-			dhd_log_dump_print args;	\
+			DHD_LOG_DUMP_WRITE args;	\
 		}									\
 	} while (0)
 #else

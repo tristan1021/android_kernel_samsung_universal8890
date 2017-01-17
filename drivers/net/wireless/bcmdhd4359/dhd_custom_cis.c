@@ -25,7 +25,7 @@
  *
  * <<Broadcom-WL-IPTag/Open:>>
  *
- * $Id: dhd_custom_cis.c 643599 2016-06-15 08:02:16Z $
+ * $Id: dhd_custom_cis.c 665983 2016-10-19 13:13:32Z $
  */
 
 #include <typedefs.h>
@@ -47,10 +47,11 @@
 #ifdef DHD_USE_CISINFO
 
 /* File Location to keep each information */
-#define MACINFO "/data/.mac.info"
+#define MACINFO	PLATFORM_PATH".mac.info"
+#define CIDINFO	PLATFORM_PATH".cid.info"
+#define	REVINFO	PLATFORM_PATH".rev"
+
 #define MACINFO_EFS "/efs/wifi/.mac.info"
-#define CIDINFO "/data/.cid.info"
-#define	REVINFO "/data/.rev"
 
 /* Definitions for MAC address */
 #define MAC_BUF_SIZE 20
@@ -498,9 +499,8 @@ dhd_write_macaddr(struct ether_addr *mac)
 	char *filepath_data = MACINFO;
 	char *filepath_efs = MACINFO_EFS;
 	char mac_buf[MAC_BUF_SIZE];
-	char rd_buf[MAC_BUF_SIZE];
 	int ret = 0;
-	int retry_count = 0;
+	int retry_cnt = 0;
 
 	memset(mac_buf, 0, sizeof(mac_buf));
 	snprintf(mac_buf, sizeof(mac_buf), MAC_OUTPUT_FORMAT,

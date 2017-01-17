@@ -24,7 +24,7 @@
  *
  * <<Broadcom-WL-IPTag/Open:>>
  *
- * $Id: dhd_pcie_linux.c 644989 2016-06-22 05:39:56Z $
+ * $Id: dhd_pcie_linux.c 666716 2016-10-24 10:55:43Z $
  */
 
 
@@ -1111,15 +1111,16 @@ dhdpcie_enable_device(dhd_bus_t *bus)
 		return BCME_ERROR;
 	}
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)) && !defined(CONFIG_SOC_EXYNOS8890)
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)) && (LINUX_VERSION_CODE < \
+	KERNEL_VERSION(3, 19, 0)) && !defined(CONFIG_SOC_EXYNOS8890)
 	/* Updated with pci_load_and_free_saved_state to compatible
-	 * with kernel 3.14 or higher
+	 * with Kernel version 3.14.0 to 3.18.41.
 	 */
 	pci_load_and_free_saved_state(bus->dev, &pch->default_state);
 	pch->default_state = pci_store_saved_state(bus->dev);
 #else
 	pci_load_saved_state(bus->dev, pch->default_state);
-#endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)) && !CONFIG_SOC_EXYNOS8890 */
+#endif /* LINUX_VERSION >= 3.14.0 && LINUX_VERSION < 3.19.0 && !CONFIG_SOC_EXYNOS8890 */
 
 	pci_restore_state(bus->dev);
 #endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0)) */
